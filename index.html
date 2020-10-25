@@ -1,0 +1,98 @@
+<html>
+  <head>
+    <!-- Load TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm/dist/tf-backend-wasm.js"></script>
+
+    <!-- Load Posenet -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.0"></script>
+  </head>
+
+  <body>
+    <img id="cat" src="images/my_image.png" />
+    <canvas id="canvas"></canvas>
+    <canvas id="canvas2"></canvas>
+  </body>
+  <!-- Place your code in the script tag below. You can also use an external .js file -->
+  <script>
+    tf.setBackend('webgl');
+    var flipHorizontal = false;
+
+    var imageElement = document.getElementById("cat");
+
+    posenet
+      .load()
+      .then(function (net) {
+        const pose = net.estimateSinglePose(imageElement, {
+          flipHorizontal: true,
+        });
+        return pose;
+      })
+      .then(function (pose) {
+        console.log(pose);
+      });
+
+    const img = document.getElementById("cat");
+
+    async function loadAndPredict() {
+      // const net = await bodyPix.load(/** optional arguments, see below **/);
+
+      /**
+       * One of (see documentation below):
+       *   - net.segmentPerson
+       *   - net.segmentPersonParts
+       *   - net.segmentMultiPerson
+       *   - net.segmentMultiPersonParts
+       * See documentation below for details on each method.
+       */
+      // const segmentation = await net.segmentPerson(img);
+      // console.log(segmentation);
+
+      const img = document.getElementById("cat");
+
+      const net = await bodyPix.load();
+      const segmentation = await net.segmentPerson(img, {
+        internalResolution: 2,
+        // nmsRadius: 0,
+      });
+
+      // The mask image is an binary mask image with a 1 where there is a person and
+      // a 0 where there is not.
+      const foregroundColor = {r: 0, g: 0, b: 0, a: 0};
+      const backgroundColor = {r: 0, g: 255, b: 0, a: 255};
+      const coloredPartImage = bodyPix.toMask(segmentation, foregroundColor, backgroundColor);
+      const opacity = 0.7;
+      const flipHorizontal = false;
+      const maskBlurAmount = 4;
+      const canvas = document.getElementById("canvas");
+      const canvas2 = document.getElementById("canvas2");
+      // Draw the mask image on top of the original image onto a canvas.
+      // The colored part image will be drawn semi-transparent, with an opacity of
+      // 0.7, allowing for the original image to be visible under.
+      bodyPix.drawMask(
+        canvas,
+        img,
+        coloredPartImage,
+        opacity,
+        maskBlurAmount,
+        flipHorizontal
+      );
+      bodyPix.drawMask(
+        canvas2,
+        img,
+        coloredPartImage,
+        opacity,
+        4,
+        flipHorizontal
+      );
+
+      const backgroundBlurAmount = 3;
+      const edgeBlurAmount = 3;
+      // const flipHorizontal = false;
+
+      bodyPix.drawBokehEffect(canvas2, img, segmentation, backgroundBlurAmount, edgeBlurAmount, flipHorizontal);
+    }
+    loadAndPredict();
+  </script>
+</html>

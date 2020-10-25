@@ -1,0 +1,75 @@
+<html>
+  <head>
+    <!-- Load TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm/dist/tf-backend-wasm.js"></script>
+
+    <!-- Load Posenet -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.0"></script>
+  </head>
+
+  <body>
+    <video id="webcam"></video>
+    <canvas id="canvas"></canvas>
+    <canvas id="canvas2"></canvas>
+    <ul>
+      <li><span id="segmentation_rate">X</span> frames segmented per second</li>
+      <li><span id="render_rate">Y</span> frames rendered per second</li>
+      <li><span id="time_elasped">Z</span> time_elasped</li>
+    </ul>
+  </body>
+  <!-- Place your code in the script tag below. You can also use an external .js file -->
+  <script>
+    tf.setBackend("webgl").then(() => main());
+    async function main() {
+      const webcamEl = document.getElementById("webcam");
+      const canvasEl = document.getElementById("canvas");
+      const segmentationRateEl = document.getElementById('segmentation_rate');
+      const renderRateEl = document.getElementById('render_rate');
+      const timeElasped = document.getElementById('time_elasped');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+      });
+      webcamEl.srcObject = stream;
+      webcamEl.play();
+      const net = await bodyPix.load();
+
+      const backgroundBlurAmount = 3;
+      const edgeBlurAmount = 3;
+      const flipHorizontal = true;
+      const foregroundColor = {r: 0, g: 0, b: 0, a: 0};
+      const backgroundColor = {r: 255, g: 255, b: 255, a: 255};
+      const maskBlurAmount = 4;
+      const opacity = 0.7;
+
+      let mask = null;
+      let start;
+      let elapsed;
+
+      async function renderLoop(timestamp) {
+        canvasEl.width = webcamEl.videoWidth;
+        canvasEl.height = webcamEl.videoHeight;
+        if (mask) {
+          // bodyPix.drawMask(canvasEl, webcamEl, mask, ...);
+          // bodyPix.drawBokehEffect(canvasEl, webcamEl, segmentation, backgroundBlurAmount, edgeBlurAmount, flipHorizontal);
+          bodyPix.drawMask(canvasEl, webcamEl, mask, opacity, maskBlurAmount, flipHorizontal);
+        }
+        window.requestAnimationFrame(renderLoop);
+      }
+
+      async function segmentLoop(timestamp) {
+        webcamEl.width = webcamEl.videoWidth;
+        webcamEl.height = webcamEl.videoHeight;
+        const segmentation = await net.segmentPerson(webcamEl);
+        mask = bodyPix.toMask(segmentation, foregroundColor, backgroundColor);
+        window.requestAnimationFrame(segmentLoop);
+      }
+
+      webcamEl.onloadeddata = function() {
+        window.requestAnimationFrame(renderLoop);
+        window.requestAnimationFrame(segmentLoop);
+      }
+    }
+  </script>
+</html>

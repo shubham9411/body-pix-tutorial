@@ -1,0 +1,28 @@
+<img id="jimage" src="images/my_image.png"/>
+<canvas id="canvas" width="900" height="507"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.0"></script>
+<script>
+  async function helloWorld() {
+    const imageElement = document.getElementById('jimage');
+    const net = await bodyPix.load({
+      architecture: 'ResNet50',
+      outputStride: 16,
+      quantBytes: 4
+    });
+    const segmentation = await net.segmentPerson(imageElement, {
+      internalResolution: "full",
+      segmentationThreshold: 0.2,
+      nmsRadius: 1
+    });
+    const coloredPartImage = bodyPix.toMask(segmentation);
+    const opacity = 0.7;
+    const flipHorizontal = false;
+    const maskBlurAmount = 3;
+    const canvas = document.getElementById('canvas');
+    bodyPix.drawMask(
+        canvas, imageElement, coloredPartImage, opacity, maskBlurAmount,
+        flipHorizontal
+    );
+  };
+</script>

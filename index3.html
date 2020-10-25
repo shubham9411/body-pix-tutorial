@@ -1,0 +1,72 @@
+<html>
+  <head>
+    <!-- Load TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm/dist/tf-backend-wasm.js"></script>
+
+    <!-- Load Posenet -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.0"></script>
+  </head>
+
+  <body>
+    <video id="webcam"></video>
+    <canvas id="canvas"></canvas>
+    <canvas id="canvas2"></canvas>
+    <ul>
+      <li><span id="render_rate">Y</span> frames rendered per second</li>
+      <li><span id="segmentation_rate">X</span> frames segmented per second</li>
+    </ul>
+  </body>
+  <!-- Place your code in the script tag below. You can also use an external .js file -->
+  <script>
+    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+      tf.setBackend("webgl").then(() => main());
+      async function main() {
+        const webcamEl = document.getElementById("webcam");
+        const canvasEl = document.getElementById("canvas");
+        const segmentationRateEl = document.getElementById('segmentation_rate');
+        const renderRateEl = document.getElementById('render_rate');
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+        });
+        webcamEl.srcObject = stream;
+        webcamEl.play();
+        const net = await bodyPix.load();
+
+        const backgroundBlurAmount = 3;
+        const edgeBlurAmount = 3;
+        const flipHorizontal = true;
+        const foregroundColor = {r: 0, g: 0, b: 0, a: 0};
+        const backgroundColor = {r: 255, g: 255, b: 255, a: 255};
+        const maskBlurAmount = 4;
+        const opacity = 0.7;
+
+        let mask = null;
+
+        async function renderLoop(now, metadata) {
+          canvasEl.width = metadata.width;
+          canvasEl.height = metadata.height;
+          if (mask) {
+            // bodyPix.drawMask(canvasEl, webcamEl, mask, ...);
+            // bodyPix.drawBokehEffect(canvasEl, webcamEl, segmentation, backgroundBlurAmount, edgeBlurAmount, flipHorizontal);
+            bodyPix.drawMask(canvasEl, webcamEl, mask, opacity, maskBlurAmount, flipHorizontal);
+          }
+          webcamEl.requestVideoFrameCallback(renderLoop);
+        }
+        webcamEl.requestVideoFrameCallback(renderLoop);
+
+        async function segmentLoop(now, metadata) {
+          webcamEl.width = metadata.width;
+          webcamEl.height = metadata.height;
+          const segmentation = await net.segmentPerson(webcamEl);
+          mask = bodyPix.toMask(segmentation, foregroundColor, backgroundColor);
+          webcamEl.requestVideoFrameCallback(segmentLoop);
+        }
+        webcamEl.requestVideoFrameCallback(segmentLoop);
+      }
+    } else {
+      alert('API not supported')
+    }
+  </script>
+</html>
